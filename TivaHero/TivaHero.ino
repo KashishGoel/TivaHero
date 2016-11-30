@@ -20,7 +20,6 @@ void setup(){
   pinMode(LEDRED, OUTPUT);
   pinMode(LEDGREEN, OUTPUT);
   pinMode(LEDBLUE, OUTPUT);
-
   delay(100);
   
   GameUIInit();
