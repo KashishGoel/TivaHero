@@ -7,7 +7,9 @@ const int CENTER_Y = 12;
 const int RIGHT_Y = 2;
 const int updateFrequency = 50; //Decrease the value to make the notes move faster
 
-extern char beatMap[1165];
+const int SHELTER_LENGTH = 1187;
+
+extern char beatMap[SHELTER_LENGTH];
 
 int startTime;
 int gameTime;
@@ -25,7 +27,6 @@ struct note {
 
 struct note notes[MAX_ACTIVE_NOTES]; //Maximum 20 notes on the screen at once4
 bool arrayOccupied[MAX_ACTIVE_NOTES] = {false};
-int score = 0;
 int hitStreak = 0;
 int life = 100;
 
@@ -114,6 +115,10 @@ char blankScreen[] = {
 
 static void playGameInit() {
   startTime = millis();
+  perfectHits = 0;
+  goodHits = 0;
+  badHits = 0;
+  missHits = 0;
   activeNotes = 0;
   score = 0;
   hitStreak = 0;
@@ -134,16 +139,8 @@ static void createNoteRandom(int type, int noteLength,int velocity) { //Type is 
   for (int i = 0; i < MAX_ACTIVE_NOTES; i++){
   	if (! arrayOccupied[i]){
   		int columnNumber = random(0,3); //
-		  if (type == 0){ //One single note
-		  	struct note newNote = {.x = 0, .column = columnNumber, .fallVelocity = velocity, .hit = false};
-        notes[i] = newNote;
-		  }
-		  else if (type == 1){ //Two notes at once
-
-		  }
-		  else { //All 3 notes
-
-		  }
+	  	struct note newNote = {.x = 0, .column = columnNumber, .fallVelocity = velocity, .hit = false};
+      notes[i] = newNote;
 		  activeNotes++;
 		  arrayOccupied[i] = true;
       break;
@@ -216,7 +213,7 @@ static void createNoteTimed(int velocity, float bpm){
           break;
         }
       }
-      Serial.print(4);
+      //Serial.print(4);
     }
     else if (beatMap[noteIndex] == 0x05){
       int created = 0;
@@ -240,7 +237,7 @@ static void createNoteTimed(int velocity, float bpm){
       }
     }
     else if (beatMap[noteIndex] == 0x06){
-      Serial.print(6);
+      //Serial.print(6);
       int created = 0;
       for (int i = 0; i < MAX_ACTIVE_NOTES; i++){
         if (! arrayOccupied[i] && created == 0){
@@ -259,10 +256,16 @@ static void createNoteTimed(int velocity, float bpm){
         }
       }
     }
-    else {
-      //Serial.print(0);
+
+    if (noteIndex == SHELTER_LENGTH +10){
+      currentState = WinScreen;
+      digitalWrite(LEDBLUE, LOW);
+      digitalWrite(LEDGREEN, LOW);
+      digitalWrite(LEDRED, LOW);
+      OrbitOledClear();
     }
   }
+  
 
     // For creating beatmaps
     /*
@@ -305,6 +308,17 @@ static void checkHit(){
       if (arrayOccupied[i] && notes[i].column == 0){
         if (notes[i].x > 116 && notes[i].x < 120){ //Highest accuracy
           score += 300; //Serial.print(notes[i].x);
+          perfectHits++;
+          hitStreak += 1;
+          miss = false;
+          notes[i].hit = true;
+          healthChange += 3;
+          arrayOccupied[i] = false;
+          activeNotes --;
+        }
+        else if (notes[i].x > 114 && notes[i].x < 122){//Somewhat accurate
+          score += 200;//Serial.print(notes[i].x);
+          goodHits++;
           hitStreak += 1;
           miss = false;
           notes[i].hit = true;
@@ -312,19 +326,12 @@ static void checkHit(){
           arrayOccupied[i] = false;
           activeNotes --;
         }
-        else if (notes[i].x > 114 && notes[i].x < 122){//Somewhat accurate
-          score += 200;//Serial.print(notes[i].x);
-          hitStreak += 1;
-          miss = false;
-          notes[i].hit = true;
-          healthChange += 1;
-          arrayOccupied[i] = false;
-          activeNotes --;
-        }
         else if (notes[i].x > 112 && notes[i].x < 124) {//Barely hit the note
           score += 50;//Serial.print(notes[i].x);
+          badHits++;
           hitStreak += 1;
           miss = false;
+          healthChange += 2;
           notes[i].hit = true;
           arrayOccupied[i] = false;
           activeNotes --;
@@ -334,7 +341,13 @@ static void checkHit(){
     if (miss) {
       Serial.print("Miss\n");
       hitStreak = 0;
-      healthChange -= 2;
+      if (noteFrequency){
+        healthChange -= 5;
+      }
+      else {
+        healthChange -= 3;
+      }
+      
 
     }
 	}
@@ -345,6 +358,17 @@ static void checkHit(){
       if (arrayOccupied[i] && notes[i].column == 1){
         if (notes[i].x > 116 && notes[i].x < 120){
           score += 300;//Serial.print(notes[i].x);
+          perfectHits++;
+          hitStreak += 1;
+          miss = false;
+          notes[i].hit = true;
+          healthChange += 3;
+          arrayOccupied[i] = false;
+          activeNotes --;
+        }
+        else if (notes[i].x > 114 && notes[i].x < 122){
+          score += 200;//Serial.print(notes[i].x);
+          goodHits++;
           hitStreak += 1;
           miss = false;
           notes[i].hit = true;
@@ -352,18 +376,11 @@ static void checkHit(){
           arrayOccupied[i] = false;
           activeNotes --;
         }
-        else if (notes[i].x > 114 && notes[i].x < 122){
-          score += 200;//Serial.print(notes[i].x);
-          hitStreak += 1;
-          miss = false;
-          notes[i].hit = true;
-          healthChange += 1;
-          arrayOccupied[i] = false;
-          activeNotes --;
-        }
         else if (notes[i].x > 112 && notes[i].x < 124) {
           score += 50;//Serial.print(notes[i].x);
+          badHits++;
           hitStreak += 1;
+          healthChange += 1;
           miss = false;
           notes[i].hit = true;
           arrayOccupied[i] = false;
@@ -374,7 +391,12 @@ static void checkHit(){
     if (miss) {
       Serial.print("Miss\n");
       hitStreak = 0;
-      healthChange -= 2;
+      if (noteFrequency){
+        healthChange -= 5;
+      }
+      else {
+        healthChange -= 3;
+      }
     }
   }
   
@@ -384,6 +406,17 @@ static void checkHit(){
       if (arrayOccupied[i] && notes[i].column == 2){
         if (notes[i].x > 116 && notes[i].x < 120){
           score += 300;//Serial.print(notes[i].x);
+          perfectHits++;
+          hitStreak += 1;
+          miss = false;
+          notes[i].hit = true;
+          healthChange += 3;
+          arrayOccupied[i] = false;
+          activeNotes --;
+        }
+        else if (notes[i].x > 114 && notes[i].x < 122){
+          score += 200;//Serial.print(notes[i].x);
+          goodHits++;
           hitStreak += 1;
           miss = false;
           notes[i].hit = true;
@@ -391,18 +424,11 @@ static void checkHit(){
           arrayOccupied[i] = false;
           activeNotes --;
         }
-        else if (notes[i].x > 114 && notes[i].x < 122){
-          score += 200;//Serial.print(notes[i].x);
-          hitStreak += 1;
-          miss = false;
-          notes[i].hit = true;
-          healthChange += 1;
-          arrayOccupied[i] = false;
-          activeNotes --;
-        }
         else if (notes[i].x > 112 && notes[i].x < 124) {
           score += 50;//Serial.print(notes[i].x);
+          badHits++;
           hitStreak += 1;
+          healthChange += 1;
           miss = false;
           notes[i].hit = true;
           arrayOccupied[i] = false;
@@ -413,7 +439,12 @@ static void checkHit(){
     if (miss) {
       hitStreak = 0;
       Serial.print("Miss\n");
-      healthChange -= 2;
+      if (noteFrequency){
+        healthChange -= 5;
+      }
+      else {
+        healthChange -= 3;
+      }
     }
   }
   if (life + healthChange <= 100){
@@ -424,6 +455,10 @@ static void checkHit(){
       life = 0;
       Serial.print("You have died\n");
       currentState = FailScreen;
+      digitalWrite(LEDBLUE, LOW);
+      digitalWrite(LEDGREEN, LOW);
+      digitalWrite(LEDRED, LOW);
+      OrbitOledClear();
     }
   }
   else {
@@ -440,15 +475,25 @@ static void updateNoteLocation() { //This function iterates through the array of
   			arrayOccupied[i] = false;
   			activeNotes--;
         if (!notes[i].hit) {
+          missHits++;
           hitStreak = 0;
           //Serial.print("Lost note\n");
           if (life - 3 > 0){
-            life -= 3;
+            if (noteFrequency){
+              life -= 3;
+            }
+            else {
+              life -= 2;
+            }
           }
           else {
             Serial.print("You have died\n");
             life = 0;
             currentState = FailScreen;
+            digitalWrite(LEDBLUE, LOW);
+            digitalWrite(LEDGREEN, LOW);
+            digitalWrite(LEDRED, LOW);
+            OrbitOledClear();
           }
         }
   		}

@@ -1,8 +1,12 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-
+int score = 0;
 int activeNotes = 0;
+int perfectHits = 0;
+int goodHits = 0;
+int badHits = 0;
+int missHits = 0;
 
 static enum GameStates
 {
@@ -12,6 +16,7 @@ static enum GameStates
   FailScreen       = 3,
   WinScreen        = 4,
   SelectGameMode   = 5,
+  QuitScreen       = 6
   
 } currentState = Welcome;
 
@@ -57,6 +62,8 @@ void GameUIInit() {
   OrbitOledClearBuffer();
   OrbitOledSetCursor(0,0);
 
+  I2CEEPROMInit();
+
   gameInputState = { 0 };
 
   for(int i = 0; i < SwitchCount; ++i )
@@ -89,6 +96,14 @@ void GameUIInit() {
 
 bool finishPlayGameInit = false;
 //Functions to handle each seperate game state
+
+static void saveScore(int score){
+  
+}
+
+static int getScore(){
+  
+}
 
 static void handleStateWelcome()
 {
@@ -429,54 +444,172 @@ static void handleGame(int mode, int speed) { //play mode. 0 == endless/random, 
                                                    //Speed. Determines the speed that the notes move at
                                                    //noteFrequency is how often the notes are generated
   if (! finishPlayGameInit){
+    digitalWrite(LEDBLUE, LOW);
+    digitalWrite(LEDGREEN, LOW);
+    digitalWrite(LEDRED, LOW);
     playGameInit();
     finishPlayGameInit = true;
   }
   if (gameInputState.buttons[2].isRising){
+    digitalWrite(LEDBLUE, LOW);
+    digitalWrite(LEDGREEN, LOW);
+    digitalWrite(LEDRED, LOW);
     OrbitOledClear();
+    currentState = Welcome;
+    
     
   }
-  if (mode == 0){
-    //Randomly create notes
-    if (millis() % 300 == 0){
-      if (activeNotes <  MAX_ACTIVE_NOTES){
-        createNoteRandom(0, 1, 3); 
+  if (noteSpeed){
+    if (mode == 0){
+      //Randomly create notes
+      if (millis() % 300 == 0){
+        if (activeNotes <  MAX_ACTIVE_NOTES){
+          createNoteRandom(0, 1, 3); 
+        }
+      }
+      checkHit();
+      if (millis() % 20 == 0){ 
+        render();
+      }
+      if (millis() % 100 == 0){
+        updateScoreStreak();
       }
     }
-    checkHit();
-    if (millis() % 50 == 0){ 
-      render();
-    }
-    if (millis() % 100 == 0){
-      updateScoreStreak();
-    }
-  }
-  else { //Create timed notes according to a song
-    createNoteTimed(3, 185.59996); //Pass it the note velocity and the BPM
-    checkHit();
-    if (millis() % 30 == 0){ 
-      render();
-    }
-    if (millis() % 100 == 0){
-      updateScoreStreak();
+    else { //Create timed notes according to a song
+      createNoteTimed(3, 185.59996); //Pass it the note velocity and the BPM
+      checkHit();
+      if (millis() % 20 == 0){ 
+        render();
+      }
+      if (millis() % 100 == 0){
+        updateScoreStreak();
+      }
     }
   }
-
+  else {
+    if (mode == 0){
+      //Randomly create notes
+      if (millis() % 300 == 0){
+        if (activeNotes <  MAX_ACTIVE_NOTES){
+          createNoteRandom(0, 1, 3); 
+        }
+      }
+      checkHit();
+      if (millis() % 50 == 0){ 
+        render();
+      }
+      if (millis() % 100 == 0){
+        updateScoreStreak();
+      }
+    }
+    else { //Create timed notes according to a song
+      createNoteTimed(3, 185.59996); //Pass it the note velocity and the BPM
+      checkHit();
+      if (millis() % 50 == 0){ 
+        render();
+      }
+      if (millis() % 100 == 0){
+        updateScoreStreak();
+      }
+    }    
+  }
   
   
   
 }
 
 static void handleFailScreen() {
-  OrbitOledClear();
-  OrbitOledMoveTo(30,0);
-  OrbitOledDrawString("Dead");
-
+  if (millis() % 400 == 0){
+    char buffer[7]; char str1[] = {"Score:"};
+    char perhits[7]; char str2[] = {"300:"};
+    char ghits[7]; char str3[] = {"200:"};
+    char bhits[7]; char str4[] = {"50:"};
+    char mhits[7]; char str5[] = {"Miss:"};
+    itoa(score, buffer, 10);
+    itoa(perfectHits, perhits, 10);
+    itoa(goodHits, ghits, 10);
+    itoa(badHits, bhits, 10);
+    itoa(missHits, mhits, 10);
+    OrbitOledClear();
+    strcat(str1, buffer);  
+    strcat(str2, perhits);
+    strcat(str3, ghits);
+    strcat(str4, bhits);
+    strcat(str5, mhits);
+  
+    OrbitOledMoveTo(15,0);
+    OrbitOledDrawString("You Suck!");
+    
+    OrbitOledMoveTo(0,12);
+    OrbitOledDrawString("300:");
+    OrbitOledMoveTo(30, 12);
+    OrbitOledDrawString(perhits); Serial.print(perhits);
+    
+    OrbitOledMoveTo(55,12);
+    OrbitOledDrawString(str3);
+  
+    OrbitOledMoveTo(0,24);
+    OrbitOledDrawString(str4);
+  
+    OrbitOledMoveTo(55,24);
+    OrbitOledDrawString(str5);  
+  }   
+  if (gameInputState.buttons[3].isRising){
+    gameInputState.buttons[3].isRising = false;
+    OrbitOledClear();
+    currentState = Welcome;
+    menuChanged = true;
+    menuDisplay = 1;
+  }
 }
 
 static void handleWinScreen() {
+  if (millis() % 400 == 0){
+    OrbitOledClear();
+    //Serial.print(perfectHits);
+    char buffer[7]; char str1[] = {"Score:"};
+    char perhits[7]; 
+    char ghits[7]; char str3[] = {"200:"};
+    char bhits[7]; char str4[] = {"50:"};
+    char mhits[7]; char str5[] = {"Miss:"};
+    itoa(score, buffer, 10);
+    itoa(perfectHits, perhits, 10);
+    itoa(goodHits, ghits, 10);
+    itoa(badHits, bhits, 10);
+    itoa(missHits, mhits, 10);
+    
+    strcat(str1, buffer);  
+    //strcat(str21, perhits);
+    strcat(str3, ghits);
+    strcat(str4, bhits);
+    strcat(str5, mhits);
+    //Serial.print(str21);
+    OrbitOledMoveTo(20,0);
+    OrbitOledDrawString("Nice Results!");
+    
+    OrbitOledMoveTo(0,12);
+    OrbitOledDrawString("300:");
+    OrbitOledMoveTo(30, 12);
+    OrbitOledDrawString(perhits);//Serial.print(perhits);
+    
+    OrbitOledMoveTo(55,12);
+    OrbitOledDrawString(str3);
   
+    OrbitOledMoveTo(0,24);
+    OrbitOledDrawString(str4);
+  
+    OrbitOledMoveTo(55,24);
+    OrbitOledDrawString(str5); 
+  }
+  if (gameInputState.buttons[3].isRising){
+    gameInputState.buttons[3].isRising = false;
+    OrbitOledClear();
+    currentState = Welcome;
+    menuChanged = true;
+    menuDisplay = 1;
+  }
 }
+
 
 //Function to check for Input. Called constantly by GameUITick()
 
@@ -553,6 +686,7 @@ void GameUITick(){
     handleWinScreen();
     break;
   }
+  
 
   
   OrbitOledUpdate();

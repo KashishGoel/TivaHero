@@ -1,10 +1,12 @@
-#include "FillPat.h"
-#include "Launchpad.h"
-#include "OrbitBoosterPackDefs.h"
-#include "OrbitOled.h"
-#include "OrbitOledChar.h"
-#include "OrbitOledGrph.h"
-
+extern "C"{
+  #include "FillPat.h"
+  #include "Launchpad.h"
+  #include "OrbitBoosterPackDefs.h"
+  #include "OrbitOled.h"
+  #include "OrbitOledChar.h"
+  #include "OrbitOledGrph.h"
+  #include "I2CEEPROM.h"
+}
 
 #include <stdlib.h>
 #include <stdbool.h>
