@@ -1,18 +1,35 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 
+#include "inc/hw_memmap.h"
+#include "inc/hw_types.h"
+#include "inc/hw_gpio.h"
+#include "inc/hw_ints.h"
+#include "driverlib/gpio.h"
+#include "driverlib/pin_map.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/interrupt.h"
+#include "driverlib/eeprom.h"
+
+#define E2PROM_TEST_ADRES 0x0000 
 const int HITBAR_X = 120;
 const int LEFT_Y = 22 ;
 const int CENTER_Y = 12;
 const int RIGHT_Y = 2;
 const int updateFrequency = 50; //Decrease the value to make the notes move faster
-
+int difficultyLevel = 1;
 struct note {
   int x; // 
   int column; //Value between 0 an 2
   int fallVelocity; //How many y values to move it per iteration]
   bool hit;
 };
+
+
+
+
+
 
 struct note notes[20]; //Maximum 20 notes on the screen at once4
 bool arrayOccupied[20] = {false};
@@ -99,7 +116,8 @@ char blankScreen[] = {
  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
  0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40};
 
-static void playGameInit() {
+static void playGameInit(int difficulty) {
+  difficultyLevel = difficulty;
   activeNotes = 0;
   score = 0;
   hitStreak = 0;
@@ -121,7 +139,7 @@ static void createNote(int type, int noteLength,int velocity) { //Type is an int
   	if (! arrayOccupied[i]){
   		int columnNumber = random(0,3); //
 		  if (type == 0){ //One single note
-		  	struct note newNote = {.x = 0, .column = columnNumber, .fallVelocity = velocity, .hit = false};
+		  	struct note newNote = {.x = 0, .column = columnNumber, .fallVelocity = velocity * difficultyLevel, .hit = false};
         notes[i] = newNote;
 		  }
 		  else if (type == 1){ //Two notes at once
@@ -248,7 +266,48 @@ static void checkHit(){
     }
     else {
       life = 0;
-      Serial.print("You have died\n");
+      
+      struct E2PROM e2prom_write_value = {0}; /* Write struct */
+      struct E2PROM e2prom_read_value =  {0}; /* Read struct */
+      uint32_t e2size,e2block,returnCode;
+      SysCtlPeripheralEnable(SYSCTL_PERIPH_EEPROM0); // EEPROM activate
+    
+    do
+    {
+        returnCode=EEPROMInit(); // EEPROM start
+    }
+    while(returnCode!=EEPROM_INIT_OK);
+    
+    
+    /*******************************/
+
+ 
+ 
+    e2size = EEPROMSizeGet(); // Get EEPROM Size 
+    
+ 
+    e2block = EEPROMBlockCountGet(); // Get EEPROM Block Count
+  
+  EEPROMRead((uint32_t *)&e2prom_read_value, E2PROM_TEST_ADRES, sizeof(e2prom_read_value)); //Read from struct at EEPROM start from 0x0000
+   if(score > e2prom_read_value.value1) {
+    e2prom_write_value.value1 = score;
+      EEPROMProgram((uint32_t *)&e2prom_write_value, E2PROM_TEST_ADRES, sizeof(e2prom_write_value)); //Write struct to EEPROM start from 0x0000
+
+      }
+
+  EEPROMRead((uint32_t *)&e2prom_read_value, E2PROM_TEST_ADRES, sizeof(e2prom_read_value)); //Read from struct at EEPROM start from 0x0000
+
+            OrbitOledClear();
+          char str[1];
+          OrbitOledMoveTo(30,0);
+          OrbitOledDrawString("Game Over");
+          OrbitOledMoveTo(30,20);
+
+          sprintf(str, "Score:%d", score);
+         
+          OrbitOledDrawString(str);
+            currentState = Welcome;
+            menuDisplay = 0;
     }
   }
   else {

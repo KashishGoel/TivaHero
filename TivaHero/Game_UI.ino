@@ -1,7 +1,19 @@
     #include <stdlib.h>
     #include <stdbool.h>
-    
-    
+    #include <stdint.h>
+
+    #include "inc/hw_memmap.h"
+    #include "inc/hw_types.h"
+    #include "inc/hw_gpio.h"
+    #include "inc/hw_ints.h"
+    #include "driverlib/gpio.h"
+    #include "driverlib/pin_map.h"
+    #include "driverlib/sysctl.h"
+    #include "driverlib/interrupt.h"
+    #include "driverlib/eeprom.h"
+
+    #define E2PROM_TEST_ADRES 0x0000 
+
     
     static enum GameStates
     {
@@ -10,8 +22,17 @@
       PlayGame         = 2,
       FailScreen       = 3,
       WinScreen        = 4,
+      ScoreScreen      = 5,
       
     } currentState = Welcome;
+
+    struct E2PROM
+{
+    int value1;
+    uint8_t value2;
+    uint16_t value3;
+    uint8_t value4[12];
+}; 
     
     const uint32_t SwitchCount = 2;
     const uint32_t ButtonCount = 4;
@@ -150,9 +171,20 @@
             currentState = SelectDifficulty;
             handleSelectDifficulty();
             break;
-            
+
+            case 2:
+            currentState = PlayGame;
+            handleGame();
+            break;
+
+            case 3:
+            OrbitOledClear();
+            currentState = ScoreScreen;
+            scoreScreen();
+            break;
             }
-  
+
+
           
           
           }
@@ -200,13 +232,21 @@
           Serial.print(difficulty);
   
         }
+
+        if(gameInputState.buttons[2].state){
+          Serial.print("home");
+          currentState = Welcome; 
+          menuChanged = true;
+          handleStateWelcome();
           
+          }
+
       
     }
     
     static void handleGame() {
       if (! finishPlayGameInit){
-        playGameInit();
+        playGameInit(difficulty);
         finishPlayGameInit = true;
       }
       checkHit();
@@ -228,6 +268,49 @@
     static void handleWinScreen() {
       
     }
+
+    static void scoreScreen(){
+      OrbitOledMoveTo(25,0);
+      char str[5];
+      struct E2PROM e2prom_write_value = {0}; /* Write struct */
+      struct E2PROM e2prom_read_value =  {0}; /* Read struct */
+      uint32_t e2size,e2block,returnCode;
+      SysCtlPeripheralEnable(SYSCTL_PERIPH_EEPROM0); // EEPROM activate
+    
+      do
+      {
+          returnCode=EEPROMInit(); // EEPROM start
+      }
+      while(returnCode!=EEPROM_INIT_OK);
+      
+    
+    /*******************************/
+
+ 
+ 
+      e2size = EEPROMSizeGet(); // Get EEPROM Size 
+    
+ 
+      e2block = EEPROMBlockCountGet(); // Get EEPROM Block Count
+  
+      EEPROMRead((uint32_t *)&e2prom_read_value, E2PROM_TEST_ADRES, sizeof(e2prom_read_value)); //Read from struct at EEPROM start from 0x0000
+
+      sprintf(str, "%d", e2prom_read_value.value1);
+
+      OrbitOledDrawString("High Score");
+
+      OrbitOledMoveTo(50,20);
+      OrbitOledDrawString(str);
+
+      if(gameInputState.buttons[2].isRising){
+          Serial.print("home");
+          currentState = Welcome; 
+          menuChanged = true;
+          handleStateWelcome();
+          
+      }
+      
+      }
     
     //Function to check for Input. Called constantly by GameUITick()
     
